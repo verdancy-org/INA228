@@ -42,9 +42,10 @@ class INA228 : public LibXR::Application
     bool valid = false;
   };
 
-  INA228(LibXR::HardwareContainer& hw, LibXR::ApplicationManager& app, const char* i2c_name,
-         uint16_t i2c_addr, uint32_t shunt_resistor_uohm, bool adcrange_div4,
-         uint32_t sample_interval_ms, const char* data_topic_name, bool auto_init)
+  INA228(LibXR::HardwareContainer& hw, LibXR::ApplicationManager& app,
+         const char* i2c_name, uint16_t i2c_addr, uint32_t shunt_resistor_uohm,
+         bool adcrange_div4, uint32_t sample_interval_ms, const char* data_topic_name,
+         bool auto_init)
       : i2c_addr_(static_cast<uint16_t>(i2c_addr & 0x7Fu)),
         shunt_resistor_uohm_(shunt_resistor_uohm == 0 ? 5000 : shunt_resistor_uohm),
         adcrange_div4_(adcrange_div4),
@@ -54,20 +55,18 @@ class INA228 : public LibXR::Application
         op_read_block_(sem_i2c_),
         op_write_block_(sem_i2c_)
   {
-    const float gain = adcrange_div4_ ? 1.0f : 4.0f;
+    const float GAIN = adcrange_div4_ ? 1.0f : 4.0f;
 
     // 根据 ADCRANGE 与分流电阻预计算量纲系数 / Precompute scaling factors from
     // ADCRANGE and the shunt resistance.
-    shunt_voltage_lsb_v_ =
-        (SHUNT_VOLTAGE_LSB_NV_BASE * gain / 4.0f / 16.0f) * 1.0e-9f;
-    bus_voltage_lsb_v_ = (BUS_VOLTAGE_LSB_NV_BASE / 16.0f) * 1.0e-9f;
+    shunt_voltage_lsb_v_ = (SHUNT_VOLTAGE_LSB_NV_BASE * GAIN / 4.0f / 16.0f) * 1.0e-9f;
 
-    const float current_lsb_uA_base =
-        (250.0f * FIXED_SHUNT_UOHM * gain) / static_cast<float>(shunt_resistor_uohm_);
-    current_lsb_a_ = (current_lsb_uA_base / 16.0f) * 1.0e-6f;
-    power_lsb_w_ = (current_lsb_uA_base * 0.2f) * 1.0e-6f;
-    energy_lsb_j_ = (current_lsb_uA_base * 3.2f) * 1.0e-6f;
-    charge_lsb_c_ = (current_lsb_uA_base / 16.0f) * 1.0e-6f;
+    const float CURRENT_LSB_UA_BASE =
+        (250.0f * FIXED_SHUNT_UOHM * GAIN) / static_cast<float>(shunt_resistor_uohm_);
+    current_lsb_a_ = (CURRENT_LSB_UA_BASE / 16.0f) * 1.0e-6f;
+    power_lsb_w_ = (CURRENT_LSB_UA_BASE * 0.2f) * 1.0e-6f;
+    energy_lsb_j_ = (CURRENT_LSB_UA_BASE * 3.2f) * 1.0e-6f;
+    charge_lsb_c_ = (CURRENT_LSB_UA_BASE / 16.0f) * 1.0e-6f;
 
     if (auto_init)
     {
@@ -92,14 +91,14 @@ class INA228 : public LibXR::Application
 
   void OnMonitor() override
   {
-    const uint32_t now_ms = static_cast<uint32_t>(LibXR::Timebase::GetMilliseconds());
-    if ((now_ms - last_sample_ms_) < sample_interval_ms_)
+    const uint32_t NOW_MS = static_cast<uint32_t>(LibXR::Timebase::GetMilliseconds());
+    if ((NOW_MS - last_sample_ms_) < sample_interval_ms_)
     {
       return;
     }
 
-    last_sample_ms_ = now_ms;
-    data_.timestamp_ms = now_ms;
+    last_sample_ms_ = NOW_MS;
+    data_.timestamp_ms = NOW_MS;
     data_.valid = ReadAll(data_);
 
     topic_data_.Publish(data_);
@@ -109,8 +108,8 @@ class INA228 : public LibXR::Application
 
   bool ConfigureDevice()
   {
-    const uint16_t config = adcrange_div4_ ? CONFIG_ADCRANGE : 0u;
-    if (!WriteReg16(REG_CONFIG, config))
+    const uint16_t CONFIG = adcrange_div4_ ? CONFIG_ADCRANGE : 0u;
+    if (!WriteReg16(REG_CONFIG, CONFIG))
     {
       return false;
     }
@@ -136,8 +135,8 @@ class INA228 : public LibXR::Application
       return false;
     }
 
-    const uint16_t reset_config = static_cast<uint16_t>(config | CONFIG_RSTACC);
-    if (!WriteReg16(REG_CONFIG, reset_config))
+    const uint16_t RESET_CONFIG = static_cast<uint16_t>(config | CONFIG_RSTACC);
+    if (!WriteReg16(REG_CONFIG, RESET_CONFIG))
     {
       return false;
     }
@@ -195,9 +194,9 @@ class INA228 : public LibXR::Application
   bool ReadReg16(uint8_t reg, uint16_t& out)
   {
     uint8_t raw[2] = {};
-    const auto ec = i2c_->MemRead(i2c_addr_, reg, LibXR::RawData(raw, sizeof(raw)),
-                                  op_read_block_);
-    if (ec != LibXR::ErrorCode::OK)
+    const auto EC =
+        i2c_->MemRead(i2c_addr_, reg, LibXR::RawData(raw, sizeof(raw)), op_read_block_);
+    if (EC != LibXR::ErrorCode::OK)
     {
       return false;
     }
@@ -212,18 +211,17 @@ class INA228 : public LibXR::Application
         static_cast<uint8_t>(value >> 8),
         static_cast<uint8_t>(value & 0xFFu),
     };
-    const auto ec =
-        i2c_->MemWrite(i2c_addr_, reg, LibXR::ConstRawData(raw, sizeof(raw)),
-                       op_write_block_);
-    return ec == LibXR::ErrorCode::OK;
+    const auto ERROR_CODE = i2c_->MemWrite(
+        i2c_addr_, reg, LibXR::ConstRawData(raw, sizeof(raw)), op_write_block_);
+    return ERROR_CODE == LibXR::ErrorCode::OK;
   }
 
   bool ReadReg24(uint8_t reg, uint32_t& out)
   {
     uint8_t raw[3] = {};
-    const auto ec = i2c_->MemRead(i2c_addr_, reg, LibXR::RawData(raw, sizeof(raw)),
-                                  op_read_block_);
-    if (ec != LibXR::ErrorCode::OK)
+    const auto ERROR_CODE =
+        i2c_->MemRead(i2c_addr_, reg, LibXR::RawData(raw, sizeof(raw)), op_read_block_);
+    if (ERROR_CODE != LibXR::ErrorCode::OK)
     {
       return false;
     }
@@ -236,9 +234,9 @@ class INA228 : public LibXR::Application
   bool ReadReg40(uint8_t reg, uint64_t& out)
   {
     uint8_t raw[5] = {};
-    const auto ec = i2c_->MemRead(i2c_addr_, reg, LibXR::RawData(raw, sizeof(raw)),
-                                  op_read_block_);
-    if (ec != LibXR::ErrorCode::OK)
+    const auto EC =
+        i2c_->MemRead(i2c_addr_, reg, LibXR::RawData(raw, sizeof(raw)), op_read_block_);
+    if (EC != LibXR::ErrorCode::OK)
     {
       return false;
     }
@@ -277,16 +275,16 @@ class INA228 : public LibXR::Application
     {
       return false;
     }
-
     if ((diag_alrt & DIAG_ALRT_MEMSTAT) == 0u || (diag_alrt & DIAG_ALRT_CNVRF) == 0u)
     {
       return false;
     }
 
     if (!ReadSigned20(REG_SHUNT_VOLTAGE, raw_shunt) ||
-        !ReadSigned20(REG_BUS_VOLTAGE, raw_bus) || !ReadSigned20(REG_CURRENT, raw_current) ||
-        !ReadReg24(REG_POWER, raw_power) || !ReadReg16(REG_DIE_TEMP, raw_temp) ||
-        !ReadReg40(REG_ENERGY, raw_energy) || !ReadReg40(REG_CHARGE, raw_charge))
+        !ReadSigned20(REG_BUS_VOLTAGE, raw_bus) ||
+        !ReadSigned20(REG_CURRENT, raw_current) || !ReadReg24(REG_POWER, raw_power) ||
+        !ReadReg16(REG_DIE_TEMP, raw_temp) || !ReadReg40(REG_ENERGY, raw_energy) ||
+        !ReadReg40(REG_CHARGE, raw_charge))
     {
       return false;
     }
@@ -299,9 +297,9 @@ class INA228 : public LibXR::Application
     out.charge_c = static_cast<float>(SignExtend40(raw_charge)) * charge_lsb_c_;
     out.die_temperature_c = static_cast<float>(static_cast<int16_t>(raw_temp)) / 128.0f;
 
-    const uint16_t invalid_mask =
+    const uint16_t INVALID_MASK =
         DIAG_ALRT_ENERGYOF | DIAG_ALRT_CHARGEOF | DIAG_ALRT_MATHOF;
-    return (diag_alrt & invalid_mask) == 0u;
+    return (diag_alrt & INVALID_MASK) == 0u;
   }
 
   uint16_t i2c_addr_ = 0x40;
