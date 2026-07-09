@@ -2,9 +2,9 @@
 
 // clang-format off
 /* === MODULE MANIFEST V2 ===
-module_description: 德州仪器 INA228 数字功率监测器驱动模块（I2C） / Driver module for TI INA228 digital power monitor (I2C).
+module_description: XRobot Module for Texas Instruments INA228 digital power monitor sensor
 constructor_args:
-  - i2c_name: "i2c1"
+  - i2c_name: "ina228_i2c"
   - i2c_addr: 64
   - shunt_resistor_uohm: 5000
   - adcrange_div4: false
@@ -13,7 +13,7 @@ constructor_args:
   - auto_init: true
 template_args: []
 required_hardware:
-  - i2c_name
+  - ina228_i2c
 depends: []
 === END MANIFEST === */
 // clang-format on
